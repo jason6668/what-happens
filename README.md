@@ -96,6 +96,16 @@
 - **Drag & Drop**: Vue Draggable Plus
 - **Notifications**: Vue Sonner
 
+## Quick Deploy
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fjason6668%2Fwhat-happens)  
+[![Deploy to Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start/deploy?repository=https://github.com/jason6668/what-happens)  
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/jason6668/what-happens)
+[![Deploy with EdgeOne Pages](https://cdnstatic.tencentcs.com/edgeone/pages/deploy.svg)](https://edgeone.ai/pages/new?repository-url=https://github.com/jason6668/what-happens)
+[![Deploy to Cloudflare Pages](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/jason6668/what-happens)
+
+> **Tutorial:** [Cloudflare Deployment Guide](./Cloudflare部署教程.md)
+
 ## Quick Start
 
 ### Prerequisites
