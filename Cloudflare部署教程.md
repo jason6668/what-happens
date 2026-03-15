@@ -6,9 +6,9 @@
 
 点击下方按钮，即可一键将项目部署到你的 Cloudflare 账户：
 
-[![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/LYX9527/what-happen)
+[![Deploy to Cloudflare Pages](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/jason6668/what-happens)
 
-> **注意：** 一键部署时，Cloudflare 可能会要求你连接 GitHub 账户，并 Fork 本仓库代码到你的名下。
+> **注意：** 一键部署依赖于根目录下的 `wrangler.toml` 配置文件。Cloudflare 会根据此文件自动识别构建命令和输出目录。
 
 ---
 
