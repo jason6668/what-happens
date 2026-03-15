@@ -1,6 +1,5 @@
 import { ApiResponse } from '../../utils/response'
 import axios from 'axios';
-import sharp from 'sharp';
 import {createHash} from 'crypto';
 import {genRandomUserAgent} from '../../utils';
 // --- 缓存机制 ---
@@ -78,43 +77,49 @@ export default defineEventHandler(async (event) => {
                 });
             }
             setResponseHeader(event, 'Content-Type', 'image/gif');
-            setResponseHeader(event, 'X-Cache', 'MISS'); // 未命中缓存
+            setResponseHeader(event, 'X-Cache', 'MISS');
             setResponseHeader(event, 'Cache-Control', `public, max-age=${CACHE_TIME / 1000}`);
             return send(event, imageBuffer);
         }
 
-        // 6. 使用 Sharp 处理图片
-        // 如果原图是GIF，启用 animated: true 以保留动画
-        let image = sharp(imageBuffer, { animated: originalFormat === 'gif' });
+        // 6. 尝试使用 Sharp 处理图片
+        // Cloudflare Workers / Edge 环境不支持 sharp 原生模块，会自动降级为直接透传原图
+        let processedImage: Buffer = imageBuffer;
+        let finalFormat = options.format || originalFormat;
+        try {
+            const sharp = (await import('sharp')).default;
+            let image = sharp(imageBuffer, { animated: originalFormat === 'gif' });
 
-        // 调整尺寸
-        if (options.width || options.height) {
-            image.resize(options.width, options.height, {
-                fit: 'inside', // 保持宽高比，将图片缩放到刚好能 contener 在指定尺寸内
-                withoutEnlargement: true, // 防止图片被放大
-            });
+            // 调整尺寸
+            if (options.width || options.height) {
+                image.resize(options.width, options.height, {
+                    fit: 'inside',
+                    withoutEnlargement: true,
+                });
+            }
+
+            // 应用特定格式的转换和质量选项
+            switch (finalFormat) {
+                case 'jpeg':
+                    image.jpeg({ quality: options.quality });
+                    break;
+                case 'png':
+                    image.png({ quality: options.quality });
+                    break;
+                case 'webp':
+                    image.webp({ quality: options.quality });
+                    break;
+                case 'gif':
+                    image.gif();
+                    break;
+            }
+
+            processedImage = await image.toBuffer();
+        } catch (_sharpError) {
+            // Cloudflare Workers / Edge 环境不支持 sharp 原生模块，直接透传原图
+            processedImage = imageBuffer;
+            finalFormat = originalFormat;
         }
-
-        const finalFormat = options.format || originalFormat;
-
-        // 应用特定格式的转换和质量选项
-        switch (finalFormat) {
-            case 'jpeg':
-                image.jpeg({ quality: options.quality });
-                break;
-            case 'png':
-                image.png({ quality: options.quality });
-                break;
-            case 'webp':
-                image.webp({ quality: options.quality });
-                break;
-            case 'gif':
-                // 如果输入是动态的，Sharp可以输出动态GIF
-                image.gif();
-                break;
-        }
-
-        const processedImage = await image.toBuffer();
 
         // 7. 缓存处理后的结果
         const finalContentType = `image/${finalFormat}`;
@@ -128,14 +133,13 @@ export default defineEventHandler(async (event) => {
 
         // 8. 发送最终的响应
         setResponseHeader(event, 'Content-Type', finalContentType);
-        setResponseHeader(event, 'X-Cache', 'MISS'); // 未命中缓存
+        setResponseHeader(event, 'X-Cache', 'MISS');
         setResponseHeader(event, 'Cache-Control', `public, max-age=${CACHE_TIME / 1000}`);
 
         return send(event, processedImage);
 
     } catch (error: any) {
         console.error('图片代理出错:', error.message);
-        // 检查是否是axios错误，以便返回更具体的错误码
         if (error.isAxiosError && error.response) {
             return ApiResponse.error(`获取图片失败: ${error.response.statusText}`, error.response.status);
         }
@@ -148,18 +152,17 @@ const generateCacheKey = (url: string, options: any): string => {
     const str = `${url}-${JSON.stringify(options)}`;
     return createHash('md5').update(str).digest('hex');
 };
+
 // 验证时间戳以防止重放攻击 (可选功能)。
 const verifyRequest = (query: ReturnType<typeof getQuery>): boolean => {
-    // 在Nuxt中，使用runtimeConfig来访问环境变量
     const config = useRuntimeConfig();
-    if (!config.proxySecret) return true; // 如果没有设置密钥，则跳过验证
+    if (!config.proxySecret) return true;
     // @ts-ignore
     const timestamp = parseInt(query.t as string);
     // 5分钟的过期窗口
     if (isNaN(timestamp) || Date.now() - timestamp > 300000) {
         return false;
     }
-
     return true;
 };
 
@@ -169,5 +172,5 @@ const detectImageFormat = (buffer: Buffer): string => {
     if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4E && buffer[3] === 0x47) return 'png';
     if (buffer[0] === 0xFF && buffer[1] === 0xD8) return 'jpeg';
     if (buffer.length > 12 && buffer[8] === 0x57 && buffer[9] === 0x45 && buffer[10] === 0x42 && buffer[11] === 0x50) return 'webp';
-    return 'jpeg'; // 默认回退格式
+    return 'jpeg';
 };
